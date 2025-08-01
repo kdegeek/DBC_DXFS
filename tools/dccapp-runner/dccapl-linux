@@ -5,7 +5,7 @@ set -euo pipefail
 DXRUN_BIN="dxrun"
 MNT_ROOT="/mnt/wws"
 if [ "$#" -lt 1 ]; then echo "Usage: $0 file.dccapp [--dxrun PATH] [--mount-root DIR]"; exit 2; fi
-DCCAPP="$1"; shift || true
+DCCAPP="$1"; shift
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --dxrun) DXRUN_BIN="$2"; shift 2 ;;
