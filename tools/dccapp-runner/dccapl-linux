@@ -4,8 +4,10 @@ set -euo pipefail
 # Usage: dccapl-linux /path/to/file.dccapp [--dxrun /path/to/dxrun] [--mount-root /mnt/wws]
 DXRUN_BIN="dxrun"
 MNT_ROOT="/mnt/wws"
-if [ "$#" -lt 1 ]; then echo "Usage: $0 file.dccapp [--dxrun PATH] [--mount-root DIR]"; exit 2; fi
-DCCAPP="$1"; shift
+HELP() { echo "Usage: $0 file.dccapp [--dxrun PATH] [--mount-root DIR]"; }
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then HELP; exit 0; fi
+if [ "$#" -lt 1 ]; then HELP; exit 2; fi
+DCCAPP="$1"; shift || true
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --dxrun) DXRUN_BIN="$2"; shift 2 ;;
@@ -13,8 +15,13 @@ while [ "$#" -gt 0 ]; do
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PARSE_OUT=$("$SCRIPT_DIR/dccapp_parse.sh" "$DCCAPP")
+# Use installed helper scripts
+RUNNER_LIB_DIR="/usr/lib/dbc-dxfs-dccapp-runner"
+PARSE_SH="$RUNNER_LIB_DIR/dccapp_parse.sh"
+INIENV_SH="$RUNNER_LIB_DIR/ini_to_env.sh"
+if [ ! -x "$PARSE_SH" ]; then echo "Missing parser: $PARSE_SH" >&2; exit 127; fi
+if [ ! -x "$INIENV_SH" ]; then echo "Missing INI mapper: $INIENV_SH" >&2; exit 127; fi
+PARSE_OUT=$("$PARSE_SH" "$DCCAPP")
 mapfile -t LINES <<< "$PARSE_OUT"
 INI=""; ENTRY1=""; ENTRY2=""; CN_STR=""; declare -a ARGS=()
 for ln in "${LINES[@]}"; do
@@ -29,7 +36,7 @@ done
 if [ -n "$INI" ]; then
   INI_LNX="$MNT_ROOT/pc/$(basename "$INI")"
   if [ -f "$INI_LNX" ]; then
-    eval "$("$SCRIPT_DIR/ini_to_env.sh" "$INI_LNX" "$MNT_ROOT")"
+    eval "$("$INIENV_SH" "$INI_LNX" "$MNT_ROOT")"
   else
     export PLB_TERM=ansi PLB_FNC=lower PLB_SYSTEM="$MNT_ROOT/pc" PLB_PATH="$MNT_ROOT/code:$MNT_ROOT/pc"
   fi
