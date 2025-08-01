@@ -1,0 +1,50 @@
+name: Build Debian package
+on:
+  push:
+    branches: [ feature/dccapp-runner-deb ]
+  pull_request:
+    branches: [ feature/dccapp-runner-deb ]
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libssl-dev libcups2-dev zlib1g-dev libreadline-dev unixodbc-dev devscripts debhelper dpkg-dev desktop-file-utils shared-mime-info xdg-utils
+      - name: Build DB/C DX runtime
+        run: |
+          make -f Makefile.dx.linux -j"$(nproc)"
+      - name: Stage runtime artifacts for packaging
+        run: |
+          mkdir -p debian/tmp/opt/dbc-dx/bin debian/tmp/opt/dbc-dx/lib
+          [ -f ./dbc ] && install -m0755 ./dbc debian/tmp/opt/dbc-dx/bin/dbc || true
+          [ -f ./dbcsc ] && install -m0755 ./dbcsc debian/tmp/opt/dbc-dx/bin/dbcsc || true
+          [ -f ./dbcd ] && install -m0755 ./dbcd debian/tmp/opt/dbc-dx/bin/dbcd || true
+          [ -f ./dbcmp ] && install -m0755 ./dbcmp debian/tmp/opt/dbc-dx/bin/dbcmp || true
+          [ -f ./dbcsql.so ] && install -m0644 ./dbcsql.so debian/tmp/opt/dbc-dx/lib/dbcsql.so || true
+          find . -type f -name 'libdbc*.so*' -exec install -m0644 -D {} debian/tmp/opt/dbc-dx/lib/ \; || true
+      - name: Make scripts executable
+        run: |
+          chmod +x tools/dccapp-runner/dccapp_parse.sh || true
+          chmod +x tools/dccapp-runner/ini_to_env.sh || true
+          chmod +x tools/dccapp-runner/dccapl-linux || true
+      - name: Build package
+        env:
+          DEB_BUILD_OPTIONS: nocheck
+        run: |
+          debuild -us -uc -d
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist
+          shopt -s nullglob
+          for f in ../*.deb ../*.buildinfo ../*.changes; do cp -v "$f" dist/; done
+          ls -la dist
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbc-dxfs-dccapp-runner-debs
+          path: dist/*

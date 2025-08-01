@@ -1,0 +1,4 @@
+Credentials handling
+- If your .dccapp connection string omits username/password, the launcher will prompt for them and save the password in the desktop keyring (Secret Service via secret-tool) when available.
+- To force re-prompt and clear stored credentials for the app/host/port, run with --reset-creds.
+- No credentials are stored in the repository or package files.

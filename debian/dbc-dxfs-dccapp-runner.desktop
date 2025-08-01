@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=DB/C DX .dccapp Runner
+Comment=Open .dccapp with DB/C DX runtime
+Exec=/usr/bin/dccapl-linux %f
+Terminal=true
+Type=Application
+MimeType=application/x-dccapp;
+Categories=Utility;
+Icon=utilities-terminal

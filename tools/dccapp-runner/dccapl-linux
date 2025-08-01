@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# DCCAPL-compatible launcher for Linux using bundled DB/C DX runtime with credential prompt+store
+# Usage: dccapl-linux file.dccapp [--dxrun PATH] [--mount-root DIR] [--reset-creds]
+DXRUN_BIN="dxrun"
+MNT_ROOT="/mnt/wws"
+RESET_CREDS="false"
+HELP() { echo "Usage: $0 file.dccapp [--dxrun PATH] [--mount-root DIR] [--reset-creds]"; }
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then HELP; exit 0; fi
+if [ "$#" -lt 1 ]; then HELP; exit 2; fi
+DCCAPP="$1"; shift || true
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --dxrun) DXRUN_BIN="$2"; shift 2 ;;
+    --mount-root) MNT_ROOT="$2"; shift 2 ;;
+    --reset-creds) RESET_CREDS="true"; shift 1 ;;
+    *) echo "Unknown arg: $1"; exit 1 ;;
+  esac
+done
+# Prefer bundled runtime if present
+if [ -x "/opt/dbc-dx/bin/dxrun" ]; then
+  DXRUN_BIN="/opt/dbc-dx/bin/dxrun"
+fi
+RUNNER_LIB_DIR="/usr/lib/dbc-dxfs-dccapp-runner"
+PARSE_SH="$RUNNER_LIB_DIR/dccapp_parse.sh"
+INIENV_SH="$RUNNER_LIB_DIR/ini_to_env.sh"
+if [ ! -x "$PARSE_SH" ]; then echo "Missing parser: $PARSE_SH" >&2; exit 127; fi
+if [ ! -x "$INIENV_SH" ]; then echo "Missing INI mapper: $INIENV_SH" >&2; exit 127; fi
+PARSE_OUT=$("$PARSE_SH" "$DCCAPP")
+mapfile -t LINES <<< "$PARSE_OUT"
+INI=""; ENTRY1=""; ENTRY2=""; CN_STR=""; declare -a ARGS=()
+for ln in "${LINES[@]}"; do
+  case "$ln" in
+    INI=*) INI=${ln#INI=} ;;
+    ENTRY1=*) ENTRY1=${ln#ENTRY1=} ;;
+    ENTRY2=*) ENTRY2=${ln#ENTRY2=} ;;
+    CN_STR=*) CN_STR=${ln#CN_STR=} ;;
+    ARG=*) ARGS+=("${ln#ARG=}") ;;
+  esac
+done
+# Environment
+if [ -n "$INI" ]; then
+  INI_LNX="$MNT_ROOT/pc/$(basename "$INI")"
+  if [ -f "$INI_LNX" ]; then
+    eval "$("$INIENV_SH" "$INI_LNX" "$MNT_ROOT")"
+  else
+    export PLB_TERM=ansi PLB_FNC=lower PLB_SYSTEM="$MNT_ROOT/pc" PLB_PATH="$MNT_ROOT/code:$MNT_ROOT/pc"
+  fi
+else
+  export PLB_TERM=ansi PLB_FNC=lower PLB_SYSTEM="$MNT_ROOT/pc" PLB_PATH="$MNT_ROOT/code:$MNT_ROOT/pc"
+fi
+# Resolve entry modules
+ENTRY1_BASENAME=$(basename "$ENTRY1" | tr -d '\r')
+ENTRY2_CLEAN=$(printf '%s' "$ENTRY2" | tr -d '\r')
+ENTRY1_LNX="$MNT_ROOT/code/$ENTRY1_BASENAME"
+# Parse connection string, prompt creds if needed
+HOST=""; PORT=""; USERN=""; PASSW=""
+if [ -n "$CN_STR" ]; then
+  CN_CLEAN=$(printf '%s' "$CN_STR" | tr -d '\r')
+  CN_NOPFX=${CN_CLEAN#cn_iptcp:}
+  IFS=':' read -r HOST PORT USERN PASSW <<< "$CN_NOPFX"
+fi
+have_secret_tool() { command -v secret-tool >/dev/null 2>&1; }
+store_secret() { have_secret_tool && printf '%s\n' "$5" | secret-tool store --label="DBC DXFS credentials ($3@$1:$2)" service dbc-dxfs-dccapp-runner host "$1" port "$2" app "$3" user "$4" >/dev/null 2>&1 || true; }
+clear_secret() { have_secret_tool && secret-tool clear service dbc-dxfs-dccapp-runner host "$1" port "$2" app "$3" >/dev/null 2>&1 || true; }
+APP_KEY="${ENTRY1_BASENAME%.*}"
+if [ -n "$HOST" ] && [ -n "$PORT" ]; then
+  if [ "$RESET_CREDS" = "true" ]; then clear_secret "$HOST" "$PORT" "$APP_KEY"; fi
+  if [ -z "${USERN:-}" ]; then read -r -p "Username for $HOST:$PORT ($APP_KEY): " USERN; fi
+  if [ -z "${PASSW:-}" ]; then read -r -s -p "Password for $HOST:$PORT ($APP_KEY): " PASSW; echo; fi
+  store_secret "$HOST" "$PORT" "$APP_KEY" "$USERN" "$PASSW"
+  CN_STR="cn_iptcp:$HOST:$PORT:$USERN:$PASSW"
+fi
+# Normalize args: drop stray comment tokens like '#' and following single number
+NORM_ARGS=()
+skip_next=0
+for a in "${ARGS[@]}"; do
+  if [ "$skip_next" -eq 1 ]; then skip_next=0; continue; fi
+  if [ "$a" = "#" ]; then skip_next=1; continue; fi
+  NORM_ARGS+=("$a")
+done
+RARGS=("$ENTRY1_LNX" "$ENTRY2_CLEAN")
+for a in "${NORM_ARGS[@]}"; do RARGS+=("$a"); done
+if [ -n "$CN_STR" ]; then RARGS+=("$CN_STR"); fi
+# Final: ensure dxrun exists
+if ! command -v "$DXRUN_BIN" >/dev/null 2>&1; then
+  echo "DB/C DX runtime not found at '$DXRUN_BIN'. Install is expected under /opt/dbc-dx/bin/dxrun or pass --dxrun PATH." >&2
+  exit 127
+fi
+echo "Running: $DXRUN_BIN ${RARGS[*]}" >&2
+exec "$DXRUN_BIN" "${RARGS[@]}"

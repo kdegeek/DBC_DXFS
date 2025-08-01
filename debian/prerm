@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+# Remove symlink if it points to our runtime
+if [ -L /usr/bin/dxrun ] && [ "$(readlink -f /usr/bin/dxrun)" = "/opt/dbc-dx/bin/dbc" ]; then
+  rm -f /usr/bin/dxrun || true
+fi
+if [ -L /opt/dbc-dx/bin/dxrun ] && [ "$(readlink -f /opt/dbc-dx/bin/dxrun)" = "/opt/dbc-dx/bin/dbc" ]; then
+  rm -f /opt/dbc-dx/bin/dxrun || true
+fi
+exit 0

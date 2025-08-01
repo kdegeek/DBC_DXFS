@@ -1,0 +1,8 @@
+#!/usr/bin/make -f
+export DH_VERBOSE=1
+%:
+	dh $@
+
+override_dh_install:
+	chmod +x tools/dccapp-runner/dccapp_parse.sh tools/dccapp-runner/ini_to_env.sh tools/dccapp-runner/dccapl-linux || true
+	dh_install

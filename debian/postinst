@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+# Create/refresh runtime compatibility symlink(s)
+if [ -x /opt/dbc-dx/bin/dbc ]; then
+  ln -sf /opt/dbc-dx/bin/dbc /opt/dbc-dx/bin/dxrun || true
+  ln -sf /opt/dbc-dx/bin/dbc /usr/bin/dxrun || true
+fi
+# Refresh desktop and MIME caches after install
+if command -v update-desktop-database >/dev/null 2>&1; then update-desktop-database >/dev/null 2>&1 || true; fi
+if command -v update-mime-database >/dev/null 2>&1; then update-mime-database /usr/share/mime >/dev/null 2>&1 || true; fi
+exit 0
