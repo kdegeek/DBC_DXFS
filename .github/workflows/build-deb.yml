@@ -11,22 +11,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Inspect repo tree
+      - name: Inspect repo and ensure no debian/compat
         run: |
-          git status
+          set -xe
           ls -la
-          if [ -e debian/compat ]; then echo "Found debian/compat in checkout"; fi
+          git ls-files | sed -n '1,200p'
+          if [ -e debian/compat ]; then echo "Removing stale debian/compat"; rm -f debian/compat; fi
+          test ! -e debian/compat || { echo "debian/compat still present"; exit 1; }
       - name: Install build deps
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential devscripts debhelper dpkg-dev desktop-file-utils shared-mime-info xdg-utils
-      - name: Ensure no debian/compat (compat via debhelper-compat)
-        run: |
-          if [ -e debian/compat ]; then
-            echo "Removing stale debian/compat"
-            git rm -f debian/compat || rm -f debian/compat || true
-          fi
-          test ! -e debian/compat || { echo "debian/compat still present"; exit 1; }
       - name: Make scripts executable
         run: |
           chmod +x tools/dccapp-runner/dccapp_parse.sh || true
