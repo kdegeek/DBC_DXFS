@@ -34,5 +34,7 @@ setupodb
 *.exe
 *.tdb
 *.tdf
+ju.xml
+test_data/
 .vs/
 .vscode/
