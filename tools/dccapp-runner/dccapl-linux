@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# DCCAPL-compatible launcher for Linux using DB/C DX runtime with credential prompt+store
+# DCCAPL-compatible launcher for Linux using bundled DB/C DX runtime with credential prompt+store
 # Usage: dccapl-linux file.dccapp [--dxrun PATH] [--mount-root DIR] [--reset-creds]
 DXRUN_BIN="dxrun"
 MNT_ROOT="/mnt/wws"
@@ -17,6 +17,10 @@ while [ "$#" -gt 0 ]; do
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
+# Prefer bundled runtime if present
+if [ -x "/opt/dbc-dx/bin/dxrun" ]; then
+  DXRUN_BIN="/opt/dbc-dx/bin/dxrun"
+fi
 RUNNER_LIB_DIR="/usr/lib/dbc-dxfs-dccapp-runner"
 PARSE_SH="$RUNNER_LIB_DIR/dccapp_parse.sh"
 INIENV_SH="$RUNNER_LIB_DIR/ini_to_env.sh"
@@ -49,53 +53,39 @@ fi
 ENTRY1_BASENAME=$(basename "$ENTRY1" | tr -d '\r')
 ENTRY2_CLEAN=$(printf '%s' "$ENTRY2" | tr -d '\r')
 ENTRY1_LNX="$MNT_ROOT/code/$ENTRY1_BASENAME"
-# Parse connection string (expected like: cn_iptcp:host:port:USER:PASS or host:port)
+# Parse connection string, prompt creds if needed
 HOST=""; PORT=""; USERN=""; PASSW=""
 if [ -n "$CN_STR" ]; then
   CN_CLEAN=$(printf '%s' "$CN_STR" | tr -d '\r')
   CN_NOPFX=${CN_CLEAN#cn_iptcp:}
   IFS=':' read -r HOST PORT USERN PASSW <<< "$CN_NOPFX"
 fi
-# Secret storage helpers
 have_secret_tool() { command -v secret-tool >/dev/null 2>&1; }
-read_secret() {
-  # key by service dbc-dxfs-dccapp-runner and host/port/app
-  local key_host="$1" key_port="$2" key_app="$3"
-  have_secret_tool && secret-tool lookup service dbc-dxfs-dccapp-runner host "$key_host" port "$key_port" app "$key_app" || true
-}
-store_secret() {
-  local key_host="$1" key_port="$2" key_app="$3" user="$4" pass="$5"
-  have_secret_tool && printf '%s\n' "$pass" | secret-tool store --label="DBC DXFS credentials ($key_app@$key_host:$key_port)" service dbc-dxfs-dccapp-runner host "$key_host" port "$key_port" app "$key_app" user "$user" >/dev/null 2>&1 || true
-}
-clear_secret() {
-  local key_host="$1" key_port="$2" key_app="$3"
-  have_secret_tool && secret-tool clear service dbc-dxfs-dccapp-runner host "$key_host" port "$key_port" app "$key_app" >/dev/null 2>&1 || true
-}
+store_secret() { have_secret_tool && printf '%s\n' "$5" | secret-tool store --label="DBC DXFS credentials ($3@$1:$2)" service dbc-dxfs-dccapp-runner host "$1" port "$2" app "$3" user "$4" >/dev/null 2>&1 || true; }
+clear_secret() { have_secret_tool && secret-tool clear service dbc-dxfs-dccapp-runner host "$1" port "$2" app "$3" >/dev/null 2>&1 || true; }
 APP_KEY="${ENTRY1_BASENAME%.*}"
 if [ -n "$HOST" ] && [ -n "$PORT" ]; then
   if [ "$RESET_CREDS" = "true" ]; then clear_secret "$HOST" "$PORT" "$APP_KEY"; fi
-  if [ -z "${USERN:-}" ] || [ -z "${PASSW:-}" ]; then
-    # Try load from keyring
-    if have_secret_tool; then
-      SECRET_JSON=$(read_secret "$HOST" "$PORT" "$APP_KEY" || true)
-      # If secret-tool was used to store only password, user is stored as attribute; we re-prompt for user if absent
-    fi
-    # Prompt interactively
-    if [ -z "${USERN:-}" ]; then
-      read -r -p "Username for $HOST:$PORT ($APP_KEY): " USERN
-    fi
-    if [ -z "${PASSW:-}" ]; then
-      read -r -s -p "Password for $HOST:$PORT ($APP_KEY): " PASSW; echo
-    fi
-    # Store for future use (password in keyring, username as attribute)
-    store_secret "$HOST" "$PORT" "$APP_KEY" "$USERN" "$PASSW" || true
-  fi
-  # Reconstruct connection string with credentials
+  if [ -z "${USERN:-}" ]; then read -r -p "Username for $HOST:$PORT ($APP_KEY): " USERN; fi
+  if [ -z "${PASSW:-}" ]; then read -r -s -p "Password for $HOST:$PORT ($APP_KEY): " PASSW; echo; fi
+  store_secret "$HOST" "$PORT" "$APP_KEY" "$USERN" "$PASSW"
   CN_STR="cn_iptcp:$HOST:$PORT:$USERN:$PASSW"
 fi
-# Build runtime args and exec
+# Normalize args: drop stray comment tokens like '#' and following single number
+NORM_ARGS=()
+skip_next=0
+for a in "${ARGS[@]}"; do
+  if [ "$skip_next" -eq 1 ]; then skip_next=0; continue; fi
+  if [ "$a" = "#" ]; then skip_next=1; continue; fi
+  NORM_ARGS+=("$a")
+done
 RARGS=("$ENTRY1_LNX" "$ENTRY2_CLEAN")
-for a in "${ARGS[@]}"; do RARGS+=("$a"); done
+for a in "${NORM_ARGS[@]}"; do RARGS+=("$a"); done
 if [ -n "$CN_STR" ]; then RARGS+=("$CN_STR"); fi
+# Final: ensure dxrun exists
+if ! command -v "$DXRUN_BIN" >/dev/null 2>&1; then
+  echo "DB/C DX runtime not found at '$DXRUN_BIN'. Install is expected under /opt/dbc-dx/bin/dxrun or pass --dxrun PATH." >&2
+  exit 127
+fi
 echo "Running: $DXRUN_BIN ${RARGS[*]}" >&2
 exec "$DXRUN_BIN" "${RARGS[@]}"
