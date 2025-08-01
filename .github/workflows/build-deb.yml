@@ -15,9 +15,9 @@ jobs:
           sudo apt-get install -y build-essential devscripts debhelper dpkg-dev desktop-file-utils shared-mime-info xdg-utils
       - name: Make scripts executable
         run: |
-          chmod +x tools/dccapp-runner/dccapp_parse.sh || true
-          chmod +x tools/dccapp-runner/ini_to_env.sh || true
-          chmod +x tools/dccapp-runner/dccapl-linux || true
+          [ -f tools/dccapp-runner/dccapp_parse.sh ] && chmod +x tools/dccapp-runner/dccapp_parse.sh
+          [ -f tools/dccapp-runner/ini_to_env.sh ] && chmod +x tools/dccapp-runner/ini_to_env.sh
+          [ -f tools/dccapp-runner/dccapl-linux ] && chmod +x tools/dccapp-runner/dccapl-linux
       - name: Build package
         run: |
           debuild -us -uc
