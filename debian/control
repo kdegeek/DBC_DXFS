@@ -1,8 +1,8 @@
-Source: dbc-dxfs
+Source: dbc-dxfs-dccapp-runner
 Section: utils
 Priority: optional
-Maintainer: DBC DXFS Maintainers <noreply@example.com>
-Build-Depends: debhelper-compat (= 13), desktop-file-utils
+Maintainer: DXFS Maintainers <noreply@example.com>
+Build-Depends: debhelper-compat (= 13), desktop-file-utils, shared-mime-info
 Standards-Version: 4.6.2
 Homepage: https://github.com/kdegeek/DBC_DXFS
 

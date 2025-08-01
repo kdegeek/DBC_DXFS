@@ -5,4 +5,5 @@ Exec=/usr/bin/dccapl-linux %f
 Terminal=true
 Type=Application
 MimeType=application/x-dccapp;
-NoDisplay=false
+Categories=Utility;
+Icon=utilities-terminal

@@ -1,5 +1,6 @@
 #!/bin/sh
 set -e
-update-desktop-database >/dev/null 2>&1 || true
-update-mime-database /usr/share/mime >/dev/null 2>&1 || true
+# Refresh desktop and MIME caches after install
+if command -v update-desktop-database >/dev/null 2>&1; then update-desktop-database >/dev/null 2>&1 || true; fi
+if command -v update-mime-database >/dev/null 2>&1; then update-mime-database /usr/share/mime >/dev/null 2>&1 || true; fi
 exit 0
