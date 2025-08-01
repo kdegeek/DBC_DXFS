@@ -1,8 +1,9 @@
 #!/bin/sh
 set -e
-# Create/refresh dxrun symlink for convenience
-if [ -x /opt/dbc-dx/bin/dxrun ]; then
-  ln -sf /opt/dbc-dx/bin/dxrun /usr/bin/dxrun || true
+# Create/refresh runtime compatibility symlink(s)
+if [ -x /opt/dbc-dx/bin/dbc ]; then
+  ln -sf /opt/dbc-dx/bin/dbc /opt/dbc-dx/bin/dxrun || true
+  ln -sf /opt/dbc-dx/bin/dbc /usr/bin/dxrun || true
 fi
 # Refresh desktop and MIME caches after install
 if command -v update-desktop-database >/dev/null 2>&1; then update-desktop-database >/dev/null 2>&1 || true; fi

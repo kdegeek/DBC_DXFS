@@ -1,8 +1,8 @@
+# Runner scripts and desktop/MIME
 tools/dccapp-runner/dccapp_parse.sh usr/lib/dbc-dxfs-dccapp-runner/
 tools/dccapp-runner/ini_to_env.sh usr/lib/dbc-dxfs-dccapp-runner/
 tools/dccapp-runner/dccapl-linux usr/bin/
 debian/dbc-dxfs-dccapp-runner.desktop usr/share/applications/
 debian/dbc-dxfs-dccapp-runner.xml usr/share/mime/packages/
-# Bundle DB/C DX runtime from repo build/output paths (adjust to actual paths in repo)
-bin/dxrun opt/dbc-dx/bin/
-lib/libdbc*.so opt/dbc-dx/lib/
+# Runtime payload is staged by build to debian/tmp/opt/dbc-dx/{bin,lib} and picked up automatically by dh_install
+# Do NOT reference non-existent bin/dxrun or lib/libdbc*.so here.
