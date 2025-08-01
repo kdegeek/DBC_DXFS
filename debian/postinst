@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+update-desktop-database >/dev/null 2>&1 || true
+update-mime-database /usr/share/mime >/dev/null 2>&1 || true
+exit 0

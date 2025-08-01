@@ -1,0 +1,3 @@
+tools/dccapp-runner/dccapp_parse.sh usr/lib/dbc-dxfs-dccapp-runner/
+tools/dccapp-runner/ini_to_env.sh usr/lib/dbc-dxfs-dccapp-runner/
+tools/dccapp-runner/dccapl-linux usr/bin/

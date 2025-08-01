@@ -1,0 +1,29 @@
+name: Build Debian package
+on:
+  push:
+    branches: [ feature/dccapp-runner-deb ]
+  pull_request:
+    branches: [ feature/dccapp-runner-deb ]
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build deps
+        run: sudo apt-get update && sudo apt-get install -y devscripts debhelper dpkg-dev desktop-file-utils xdg-utils
+      - name: Make scripts executable
+        run: |
+          chmod +x tools/dccapp-runner/dccapp_parse.sh || true
+          chmod +x tools/dccapp-runner/ini_to_env.sh || true
+          chmod +x tools/dccapp-runner/dccapl-linux || true
+      - name: Build package
+        run: |
+          debuild -us -uc
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbc-dxfs-dccapp-runner-debs
+          path: |
+            ../*.deb
+            ../*.buildinfo
+            ../*.changes

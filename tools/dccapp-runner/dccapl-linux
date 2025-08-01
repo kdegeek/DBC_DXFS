@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# DCCAPL-compatible launcher for Linux using DB/C DX runtime
+# Usage: dccapl-linux /path/to/file.dccapp [--dxrun /path/to/dxrun] [--mount-root /mnt/wws]
+DXRUN_BIN="dxrun"
+MNT_ROOT="/mnt/wws"
+if [ "$#" -lt 1 ]; then echo "Usage: $0 file.dccapp [--dxrun PATH] [--mount-root DIR]"; exit 2; fi
+DCCAPP="$1"; shift || true
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --dxrun) DXRUN_BIN="$2"; shift 2 ;;
+    --mount-root) MNT_ROOT="$2"; shift 2 ;;
+    *) echo "Unknown arg: $1"; exit 1 ;;
+  esac
+done
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PARSE_OUT=$("$SCRIPT_DIR/dccapp_parse.sh" "$DCCAPP")
+mapfile -t LINES <<< "$PARSE_OUT"
+INI=""; ENTRY1=""; ENTRY2=""; CN_STR=""; declare -a ARGS=()
+for ln in "${LINES[@]}"; do
+  case "$ln" in
+    INI=*) INI=${ln#INI=} ;;
+    ENTRY1=*) ENTRY1=${ln#ENTRY1=} ;;
+    ENTRY2=*) ENTRY2=${ln#ENTRY2=} ;;
+    CN_STR=*) CN_STR=${ln#CN_STR=} ;;
+    ARG=*) ARGS+=("${ln#ARG=}") ;;
+  esac
+done
+if [ -n "$INI" ]; then
+  INI_LNX="$MNT_ROOT/pc/$(basename "$INI")"
+  if [ -f "$INI_LNX" ]; then
+    eval "$("$SCRIPT_DIR/ini_to_env.sh" "$INI_LNX" "$MNT_ROOT")"
+  else
+    export PLB_TERM=ansi PLB_FNC=lower PLB_SYSTEM="$MNT_ROOT/pc" PLB_PATH="$MNT_ROOT/code:$MNT_ROOT/pc"
+  fi
+else
+  export PLB_TERM=ansi PLB_FNC=lower PLB_SYSTEM="$MNT_ROOT/pc" PLB_PATH="$MNT_ROOT/code:$MNT_ROOT/pc"
+fi
+ENTRY1_BASENAME=$(basename "$ENTRY1" | tr -d '\r')
+ENTRY2_CLEAN=$(printf '%s' "$ENTRY2" | tr -d '\r')
+ENTRY1_LNX="$MNT_ROOT/code/$ENTRY1_BASENAME"
+RARGS=("$ENTRY1_LNX" "$ENTRY2_CLEAN")
+for a in "${ARGS[@]}"; do RARGS+=("$a"); done
+if [ -n "$CN_STR" ]; then RARGS+=("$CN_STR"); fi
+echo "Running: $DXRUN_BIN ${RARGS[*]}" >&2
+exec "$DXRUN_BIN" "${RARGS[@]}"
