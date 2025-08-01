@@ -11,7 +11,7 @@ rest=$(printf '%s' "$raw" | sed 's/^.* -mv[0-9]\+ //; t; s/^.* -g[0-9]\+ //')
 read -r ENTRY1 ENTRY2 REMAINDER <<< "$rest"
 mapfile -t TOKS < <(printf '%s\n' "$REMAINDER")
 if [ "${#TOKS[@]}" -eq 0 ]; then
-  mapfile -t ALL < <(printf '%s\n' $rest)
+  mapfile -t ALL < <(printf '%s\n' "$rest")
   if [ "${#ALL[@]}" -gt 2 ]; then TOKS=("${ALL[@]:2}"); fi
 fi
 CN_STR=""; ARGS=()
