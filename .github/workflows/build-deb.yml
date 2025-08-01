@@ -9,15 +9,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Inspect repo tree
+        run: |
+          git status
+          ls -la
+          if [ -e debian/compat ]; then echo "Found debian/compat in checkout"; fi
       - name: Install build deps
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential devscripts debhelper dpkg-dev desktop-file-utils shared-mime-info xdg-utils
+      - name: Ensure no debian/compat (compat via debhelper-compat)
+        run: |
+          if [ -e debian/compat ]; then
+            echo "Removing stale debian/compat"
+            git rm -f debian/compat || rm -f debian/compat || true
+          fi
+          test ! -e debian/compat || { echo "debian/compat still present"; exit 1; }
       - name: Make scripts executable
         run: |
-          [ -f tools/dccapp-runner/dccapp_parse.sh ] && chmod +x tools/dccapp-runner/dccapp_parse.sh
-          [ -f tools/dccapp-runner/ini_to_env.sh ] && chmod +x tools/dccapp-runner/ini_to_env.sh
-          [ -f tools/dccapp-runner/dccapl-linux ] && chmod +x tools/dccapp-runner/dccapl-linux
+          chmod +x tools/dccapp-runner/dccapp_parse.sh || true
+          chmod +x tools/dccapp-runner/ini_to_env.sh || true
+          chmod +x tools/dccapp-runner/dccapl-linux || true
       - name: Build package
         run: |
           debuild -us -uc
