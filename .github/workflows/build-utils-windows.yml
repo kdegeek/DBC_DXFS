@@ -1,17 +1,34 @@
 name: Run Utilities Make on Windows
 on:
-   workflow_dispatch:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+      
+    - name: Cache build dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~\AppData\Local\Temp
+          openssl
+        key: ${{ runner.os }}-utils-build-${{ hashFiles('Makefile.common.windows') }}
+        restore-keys: |
+          ${{ runner.os }}-utils-build-
+          
     - name: Make
       run: make -f Makefile.common.windows all
+      
     - name: Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: utilswindows
         path: ./*.exe

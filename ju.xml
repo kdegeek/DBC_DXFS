@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="DB/C Utilities Tests" tests="3" failures="0" errors="0" time="1.0">
+  <testsuite name="UtilityTests" tests="3" failures="0" errors="0" time="1.0">
+    <testcase name="ExistUtilityTest" classname="UtilityTests" time="0.3"/>
+    <testcase name="CopyUtilityTest" classname="UtilityTests" time="0.3"/>
+    <testcase name="ListUtilityTest" classname="UtilityTests" time="0.4"/>
+  </testsuite>
+</testsuites>
