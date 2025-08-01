@@ -5,42 +5,80 @@ permissions:
   checks: write
   pull-requests: write
 on:
-  workflow_dispatch
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
 jobs:
-  DoIt:
+  test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Restore common utilities
-        uses: actions/cache/restore@v3
-        id: cache
-        with:
-          path: |
-            aimdex
-            build
-            chain
-            copy
-            create
-            delete
-            dump
-            edit
-            encode
-            exist
-            filechk
-            index
-            library
-            list
-            reformat
-            rename
-            sort
-            tdcmp
-          key: ${{ runner.os }}-common
-      - name: echo an XML file
-        run: ./TestUtilities.sh
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        if: always()
-        with:
-          files: ju.xml
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Restore common utilities
+      uses: actions/cache/restore@v4
+      id: cache
+      with:
+        path: |
+          aimdex
+          build
+          chain
+          copy
+          create  
+          delete
+          dump
+          edit
+          encode
+          exist
+          filechk
+          index
+          library
+          list
+          reformat
+          rename
+          sort
+          tdcmp
+        key: ${{ runner.os }}-common
+        
+    - name: Build utilities if not cached
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: |
+        make -f Makefile.common.linux all
+        
+    - name: Save utilities to cache
+      if: steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          aimdex
+          build
+          chain
+          copy
+          create
+          delete
+          dump
+          edit
+          encode
+          exist
+          filechk
+          index
+          library
+          list
+          reformat
+          rename
+          sort
+          tdcmp
+        key: ${{ runner.os }}-common
+        
+    - name: Run utility tests
+      run: ./TestUtilities.sh
+      
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: always()
+      with:
+        files: ju.xml

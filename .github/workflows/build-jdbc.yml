@@ -1,21 +1,44 @@
 name: Build and jar FS-JDBC
 on:
-   workflow_dispatch:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-        - name: Checkout
-          uses: actions/checkout@v3
-        - name: Build
-          working-directory: ./jdbc
-          run: |
-            $JAVA_HOME_17_X64/bin/javac org/ptsw/fs/jdbc/*.java
-            $JAVA_HOME_17_X64/bin/jar cf fsjdbc.jar org/ptsw/fs/jdbc/*.class org/ptsw/fs/jdbc/Messages.properties
-        - name: Artifact
-          uses: actions/upload-artifact@v3
-          with:
-            name: FSJDBC
-            path: |
-              jdbc/fsjdbc.jar
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        
+    - name: Cache Java dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache
+          jdbc/org
+        key: ${{ runner.os }}-java-${{ hashFiles('jdbc/**/*.java') }}
+        restore-keys: |
+          ${{ runner.os }}-java-
+          
+    - name: Build
+      working-directory: ./jdbc
+      run: |
+        javac org/ptsw/fs/jdbc/*.java
+        jar cf fsjdbc.jar org/ptsw/fs/jdbc/*.class org/ptsw/fs/jdbc/Messages.properties
+        
+    - name: Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: FSJDBC
+        path: |
+          jdbc/fsjdbc.jar
