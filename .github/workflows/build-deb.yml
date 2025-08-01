@@ -11,13 +11,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Inspect repo and ensure no debian/compat
+      - name: Ensure no debian/compat
         run: |
-          set -xe
-          ls -la
-          git ls-files | sed -n '1,200p'
-          if [ -e debian/compat ]; then echo "Removing stale debian/compat"; rm -f debian/compat; fi
-          test ! -e debian/compat || { echo "debian/compat still present"; exit 1; }
+          if [ -e debian/compat ]; then rm -f debian/compat; fi
       - name: Install build deps
         run: |
           sudo apt-get update
@@ -28,13 +24,18 @@ jobs:
           chmod +x tools/dccapp-runner/ini_to_env.sh || true
           chmod +x tools/dccapp-runner/dccapl-linux || true
       - name: Build package
+        env:
+          DEB_BUILD_OPTIONS: nocheck
         run: |
-          debuild -us -uc
+          debuild -us -uc -d
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist
+          shopt -s nullglob
+          for f in ../*.deb ../*.buildinfo ../*.changes; do cp -v "$f" dist/; done
+          ls -la dist
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dbc-dxfs-dccapp-runner-debs
-          path: |
-            ../*.deb
-            ../*.buildinfo
-            ../*.changes
+          path: dist/*

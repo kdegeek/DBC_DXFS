@@ -1,0 +1,4 @@
+dbc-dxfs-dccapp-runner for Debian/Ubuntu
+
+This package installs a launcher (dccapl-linux) and desktop/MIME integration for .dccapp files.
+Sensitive configuration (hosts, ports, credentials) is not shipped and must come from the .dccapp at runtime.
