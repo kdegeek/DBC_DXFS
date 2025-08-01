@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# DCCAPL-compatible launcher for Linux using DB/C DX runtime
-# Usage: dccapl-linux /path/to/file.dccapp [--dxrun /path/to/dxrun] [--mount-root /mnt/wws]
+# DCCAPL-compatible launcher for Linux using DB/C DX runtime with credential prompt+store
+# Usage: dccapl-linux file.dccapp [--dxrun PATH] [--mount-root DIR] [--reset-creds]
 DXRUN_BIN="dxrun"
 MNT_ROOT="/mnt/wws"
-HELP() { echo "Usage: $0 file.dccapp [--dxrun PATH] [--mount-root DIR]"; }
+RESET_CREDS="false"
+HELP() { echo "Usage: $0 file.dccapp [--dxrun PATH] [--mount-root DIR] [--reset-creds]"; }
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then HELP; exit 0; fi
 if [ "$#" -lt 1 ]; then HELP; exit 2; fi
 DCCAPP="$1"; shift || true
@@ -12,10 +13,10 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --dxrun) DXRUN_BIN="$2"; shift 2 ;;
     --mount-root) MNT_ROOT="$2"; shift 2 ;;
+    --reset-creds) RESET_CREDS="true"; shift 1 ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
-# Use installed helper scripts
 RUNNER_LIB_DIR="/usr/lib/dbc-dxfs-dccapp-runner"
 PARSE_SH="$RUNNER_LIB_DIR/dccapp_parse.sh"
 INIENV_SH="$RUNNER_LIB_DIR/ini_to_env.sh"
@@ -33,6 +34,7 @@ for ln in "${LINES[@]}"; do
     ARG=*) ARGS+=("${ln#ARG=}") ;;
   esac
 done
+# Environment
 if [ -n "$INI" ]; then
   INI_LNX="$MNT_ROOT/pc/$(basename "$INI")"
   if [ -f "$INI_LNX" ]; then
@@ -43,9 +45,55 @@ if [ -n "$INI" ]; then
 else
   export PLB_TERM=ansi PLB_FNC=lower PLB_SYSTEM="$MNT_ROOT/pc" PLB_PATH="$MNT_ROOT/code:$MNT_ROOT/pc"
 fi
+# Resolve entry modules
 ENTRY1_BASENAME=$(basename "$ENTRY1" | tr -d '\r')
 ENTRY2_CLEAN=$(printf '%s' "$ENTRY2" | tr -d '\r')
 ENTRY1_LNX="$MNT_ROOT/code/$ENTRY1_BASENAME"
+# Parse connection string (expected like: cn_iptcp:host:port:USER:PASS or host:port)
+HOST=""; PORT=""; USERN=""; PASSW=""
+if [ -n "$CN_STR" ]; then
+  CN_CLEAN=$(printf '%s' "$CN_STR" | tr -d '\r')
+  CN_NOPFX=${CN_CLEAN#cn_iptcp:}
+  IFS=':' read -r HOST PORT USERN PASSW <<< "$CN_NOPFX"
+fi
+# Secret storage helpers
+have_secret_tool() { command -v secret-tool >/dev/null 2>&1; }
+read_secret() {
+  # key by service dbc-dxfs-dccapp-runner and host/port/app
+  local key_host="$1" key_port="$2" key_app="$3"
+  have_secret_tool && secret-tool lookup service dbc-dxfs-dccapp-runner host "$key_host" port "$key_port" app "$key_app" || true
+}
+store_secret() {
+  local key_host="$1" key_port="$2" key_app="$3" user="$4" pass="$5"
+  have_secret_tool && printf '%s\n' "$pass" | secret-tool store --label="DBC DXFS credentials ($key_app@$key_host:$key_port)" service dbc-dxfs-dccapp-runner host "$key_host" port "$key_port" app "$key_app" user "$user" >/dev/null 2>&1 || true
+}
+clear_secret() {
+  local key_host="$1" key_port="$2" key_app="$3"
+  have_secret_tool && secret-tool clear service dbc-dxfs-dccapp-runner host "$key_host" port "$key_port" app "$key_app" >/dev/null 2>&1 || true
+}
+APP_KEY="${ENTRY1_BASENAME%.*}"
+if [ -n "$HOST" ] && [ -n "$PORT" ]; then
+  if [ "$RESET_CREDS" = "true" ]; then clear_secret "$HOST" "$PORT" "$APP_KEY"; fi
+  if [ -z "${USERN:-}" ] || [ -z "${PASSW:-}" ]; then
+    # Try load from keyring
+    if have_secret_tool; then
+      SECRET_JSON=$(read_secret "$HOST" "$PORT" "$APP_KEY" || true)
+      # If secret-tool was used to store only password, user is stored as attribute; we re-prompt for user if absent
+    fi
+    # Prompt interactively
+    if [ -z "${USERN:-}" ]; then
+      read -r -p "Username for $HOST:$PORT ($APP_KEY): " USERN
+    fi
+    if [ -z "${PASSW:-}" ]; then
+      read -r -s -p "Password for $HOST:$PORT ($APP_KEY): " PASSW; echo
+    fi
+    # Store for future use (password in keyring, username as attribute)
+    store_secret "$HOST" "$PORT" "$APP_KEY" "$USERN" "$PASSW" || true
+  fi
+  # Reconstruct connection string with credentials
+  CN_STR="cn_iptcp:$HOST:$PORT:$USERN:$PASSW"
+fi
+# Build runtime args and exec
 RARGS=("$ENTRY1_LNX" "$ENTRY2_CLEAN")
 for a in "${ARGS[@]}"; do RARGS+=("$a"); done
 if [ -n "$CN_STR" ]; then RARGS+=("$CN_STR"); fi
