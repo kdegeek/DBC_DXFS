@@ -2,4 +2,4 @@ dbc-dxfs-dccapp-runner (0.1.0) unstable; urgency=medium
 
   * Add .dccapp runner, desktop and MIME integration, and CI.
 
- -- DXFS Maintainers <noreply@example.com>  Fri, 01 Aug 2025 16:35:00 +0000
+ -- DXFS Maintainers <noreply@example.com>  Fri, 01 Aug 2025 16:45:00 +0000

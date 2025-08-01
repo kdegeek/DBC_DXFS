@@ -8,7 +8,7 @@ Homepage: https://github.com/kdegeek/DBC_DXFS
 
 Package: dbc-dxfs-dccapp-runner
 Architecture: all
-Depends: ${misc:Depends}, xdg-utils, bash
+Depends: ${misc:Depends}, xdg-utils
 Description: DB/C DX .dccapp runner and desktop integration
  Provides a DCCAPL-compatible launcher that reads .dccapp files and invokes
  the DB/C DX runtime on Linux. All sensitive endpoints and credentials are

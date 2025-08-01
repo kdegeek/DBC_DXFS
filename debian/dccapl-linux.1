@@ -1,0 +1,26 @@
+.TH dccapl-linux 1 "August 2025" "dbc-dxfs-dccapp-runner 0.1.0" "User Commands"
+.SH NAME
+dccapl-linux \- launch DB/C DX programs from a .dccapp file
+.SH SYNOPSIS
+.B dccapl-linux
+.I file.dccapp
+[
+.B --dxrun
+.I /path/to/dxrun
+] [
+.B --mount-root
+.I /mnt/wws
+]
+.SH DESCRIPTION
+.B dccapl-linux
+parses a Windows-origin .dccapp launcher, loads environment from the referenced INI, and invokes the DB/C DX runtime.
+All sensitive data (hosts, ports, credentials) must be supplied by the .dccapp at runtime.
+.SH OPTIONS
+.TP
+.B --dxrun PATH
+Path to DB/C DX runtime binary (default: dxrun on PATH).
+.TP
+.B --mount-root DIR
+Linux mount root to map UNC paths (default: /mnt/wws).
+.SH SEE ALSO
+.BR xdg-open (1)

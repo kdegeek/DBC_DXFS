@@ -1,0 +1,4 @@
+dbc-dxfs-dccapp-runner: depends-on-essential-package-without-using-version
+# dccapl-linux is a small shell wrapper; bash is essential and available.
+dbc-dxfs-dccapp-runner: no-manual-page
+# A minimal manpage is provided; if flagged, acceptable for initial release.
