@@ -59,13 +59,20 @@ rm -rf test_data
 echo "All utility tests completed successfully!"
 
 # Generate JUnit XML output for the test results
+# Calculate total time (sum of all test durations)
+total_time=0
+while read -r line; do
+    if [[ $line =~ time=\"([0-9]+\.[0-9]+)\" ]]; then
+        t=${BASH_REMATCH[1]}
+        total_time=$(echo "$total_time + $t" | bc)
+    fi
+done <<< "$(echo -e "$testcases_xml")"
+
 cat > ju.xml << EOF
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="DB/C Utilities Tests" tests="3" failures="0" errors="0" time="1.0">
-  <testsuite name="UtilityTests" tests="3" failures="0" errors="0" time="1.0">
-    <testcase name="ExistUtilityTest" classname="UtilityTests" time="0.3"/>
-    <testcase name="CopyUtilityTest" classname="UtilityTests" time="0.3"/>
-    <testcase name="ListUtilityTest" classname="UtilityTests" time="0.4"/>
+<testsuites name="DB/C Utilities Tests" tests="$total_tests" failures="$failures" errors="$errors" skipped="$skipped" time="$total_time">
+  <testsuite name="UtilityTests" tests="$total_tests" failures="$failures" errors="$errors" skipped="$skipped" time="$total_time">
+$(echo -e "$testcases_xml")
   </testsuite>
 </testsuites>
 EOF
